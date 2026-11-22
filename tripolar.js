@@ -29,7 +29,7 @@ function setup() {
   background(255);
   fill(0);
   strokeWeight(0.65);
-  stroke(0, 160);
+  stroke(0);
   frameRate(1000 / speed_);
 
   mousePt_ = createVector(0,0);
@@ -58,9 +58,16 @@ function setMagnets(r) {
 // performs the simulation of the Tripolar and draws the path
 function updatePaths(x, y) {
   const pts = computePath(x, y);
-  for (let i = 2; i < pts.length; i += 2) {
-    drawNormalizedLine(pts[i-2], pts[i-1], pts[i], pts[i+1]);
+  // One continuous stroke avoids rounded segment ends overlapping into dots.
+  push();
+  noFill();
+  strokeJoin(ROUND);
+  beginShape();
+  for (let i = 0; i < pts.length; i += 2) {
+    vertex(pts[i] * scale_ + centerX_, pts[i+1] * scale_ + centerY_);
   }
+  endShape();
+  pop();
   lastPath_ = pts;
   const button = document.getElementById('download-pdf');
   if (button) button.disabled = false;
@@ -120,14 +127,6 @@ function computePath(x, y) {
     pts.push(x, y);
   }
   return pts;
-}
-
-function drawNormalizedLine(x1, y1, x2, y2) {
-  // Keep sub-pixel precision so the canvas can antialias the path
-  line(x1 * scale_ + centerX_, 
-       y1 * scale_ + centerY_, 
-       x2 * scale_ + centerX_, 
-       y2 * scale_ + centerY_);
 }
 
 function draw() {
