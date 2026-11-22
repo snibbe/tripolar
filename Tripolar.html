@@ -53,8 +53,25 @@
     .caption {
       text-align: right;
     }
+
+    .link-button {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: #666;
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .link-button:disabled {
+      color: #999;
+      text-decoration: none;
+      cursor: default;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js" defer></script>
   <script src="tripolar.js"></script>
 </head>
 <body>
@@ -69,9 +86,11 @@
     <p class="caption">
       Tripolar<br>
       Scott Snibbe, 2002<br>
-      Commissioned for The Whitney Museum's Artport: CODeDOC<br><br>
+      Commissioned for The Whitney Museum's artport: CODeDOC<br><br>
       <a href="Tripolar_java.html">Tripolar.java</a><br>
-      <a href="https://www.snibbe.com/generative/tripolar">About Tripolar</a>
+      <a href="https://www.snibbe.com/generative/tripolar">About Tripolar</a><br>
+      <button type="button" id="download-pdf" class="link-button" onclick="downloadPDF()" disabled
+              title="Draw a path first">Download PDF print</button>
     </p>
   </main>
 </body>

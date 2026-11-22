@@ -17,6 +17,8 @@ let height_ = 0.1;		// vertical distance from magnets
 let mass_ = 1.0;			// mass of Tripolar
 let dtSim_ = 0.0015;		// time step
 
+let lastPath_ = null;	// most recently drawn path, for PDF export
+
 let magnetX_ = [0, 0, 0];
 let magnetY_ = [0, 0, 0];
 
@@ -55,12 +57,23 @@ function setMagnets(r) {
 
 // performs the simulation of the Tripolar and draws the path
 function updatePaths(x, y) {
+  const pts = computePath(x, y);
+  for (let i = 2; i < pts.length; i += 2) {
+    drawNormalizedLine(pts[i-2], pts[i-1], pts[i], pts[i+1]);
+  }
+  lastPath_ = pts;
+  const button = document.getElementById('download-pdf');
+  if (button) button.disabled = false;
+}
+
+// returns the path as a flat [x0, y0, x1, y1, ...] array in normalized coordinates
+function computePath(x, y) {
+  const pts = [x, y];
   let vX=0, vY=0;	// velocity
   let fX,fY;
   let r, over_rsq, over_rcube;
   let dx, dy;
   let filtVel = 1;
-  let lastX, lastY;
   let iter = 0;
   
   // Low threshold so the small time step can settle onto the magnet
@@ -102,13 +115,11 @@ function updatePaths(x, y) {
     
     // compute filtered velocity, to determine when the Tripolar stops
     filtVel = 0.99 * filtVel + 0.1 * max(abs(vX), abs(vY));
-    lastX = x;
-    lastY = y;
     x += vX;
     y += vY;
-    
-    drawNormalizedLine(lastX, lastY, x, y);
+    pts.push(x, y);
   }
+  return pts;
 }
 
 function drawNormalizedLine(x1, y1, x2, y2) {
@@ -166,3 +177,78 @@ function draw() {
   function mouseReleased() {
     down_ = false;
   }
+
+// Saves the current path as a vector PDF with a small title and credit.
+function downloadPDF() {
+  if (!lastPath_ || !window.jspdf) return;
+
+  const lang = navigator.language || '';
+  const format = /^en-(US|CA)$/i.test(lang) ? 'letter' : 'a4';
+  const doc = new window.jspdf.jsPDF({ unit: 'pt', format: format, compress: true });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+
+  const margin = 72;
+  const size = pageW - 2 * margin;
+  const left = margin;
+  const top = margin;
+  const s = size / 2;		// normalized units to points
+  const cx = left + s, cy = top + s;
+
+  doc.setProperties({
+    title: 'Tripolar',
+    author: 'Scott Snibbe',
+    subject: 'Tripolar, Scott Snibbe, 2002',
+    creator: 'https://tripolar.snibbe.com/'
+  });
+
+  // One continuous solid path, so segment joints don't show as overlapping dots.
+  doc.saveGraphicsState();
+  doc.rect(left, top, size, size, null);
+  doc.clip();
+  doc.discardPath();
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.65 * size / screenWidth_);
+  doc.setLineCap('round');
+  doc.setLineJoin('round');
+  const pts = lastPath_;
+  doc.moveTo(cx + pts[0] * s, cy + pts[1] * s);
+  // Smooth curves through every simulated point (Catmull-Rom tangents as Bezier controls).
+  for (let i = 2; i < pts.length; i += 2) {
+    const p0 = Math.max(0, i - 4);
+    const p1 = i - 2;
+    const p2 = i;
+    const p3 = Math.min(pts.length - 2, i + 2);
+    doc.curveTo(
+      cx + (pts[p1] + (pts[p2] - pts[p0]) / 6) * s,
+      cy + (pts[p1+1] + (pts[p2+1] - pts[p0+1]) / 6) * s,
+      cx + (pts[p2] - (pts[p3] - pts[p1]) / 6) * s,
+      cy + (pts[p2+1] - (pts[p3+1] - pts[p1+1]) / 6) * s,
+      cx + pts[p2] * s,
+      cy + pts[p2+1] * s
+    );
+  }
+  doc.stroke();
+  doc.restoreGraphicsState();
+
+  // The filename records when the print was made; it doubles as the print's
+  // date/time line in the credit.
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const name = 'tripolar-snibbe-' +
+    now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' +
+    pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+
+  const right = left + size;
+  const bottom = pageH - margin;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0);
+  doc.text('Tripolar', right, bottom - 36, { align: 'right' });
+  doc.text('Scott Snibbe, 2002', right, bottom - 24, { align: 'right' });
+  doc.setTextColor(110);
+  doc.text(name, right, bottom - 12, { align: 'right' });
+  doc.text('tripolar.snibbe.com', right, bottom, { align: 'right' });
+
+  doc.save(name + '.pdf');
+}
