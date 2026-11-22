@@ -230,13 +230,19 @@ function downloadPDF() {
   doc.stroke();
   doc.restoreGraphicsState();
 
-  // The filename records when the print was made; it doubles as the print's
-  // date/time line in the credit.
+  // Encode the starting coordinates as two big-endian IEEE-754 doubles.
+  const position = new DataView(new ArrayBuffer(16));
+  position.setFloat64(0, pts[0], false);
+  position.setFloat64(8, pts[1], false);
+  const positionCode = Array.from(new Uint8Array(position.buffer),
+    byte => byte.toString(16).padStart(2, '0')).join('');
+
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
   const name = 'tripolar-snibbe-' +
     now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' +
-    pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+    pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds()) + '-' +
+    positionCode;
 
   const right = left + size;
   const bottom = pageH - margin;
