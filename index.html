@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tripolar / CODeDOC</title>
+  <style>
+    body {
+      margin: 0;
+      background: #ccc;
+      color: #000;
+      font: 11px/1.5 Arial, Helvetica, sans-serif;
+    }
+
+    .site-header {
+      padding: 24px max(12px, 2vw);
+    }
+
+    .site-title {
+      color: inherit;
+      font-size: clamp(20px, 3vw, 30px);
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-decoration: none;
+    }
+
+    .site-title:hover,
+    .site-title:focus-visible {
+      text-decoration: underline;
+    }
+
+    main {
+      width: min(512px, calc(100% - 24px));
+      margin: 16px auto;
+    }
+
+    #sketch {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #fff;
+    }
+
+    #sketch canvas {
+      display: block;
+      width: 100% !important;
+      height: auto !important;
+      touch-action: none;
+    }
+
+    a {
+      color: #666;
+    }
+
+    .caption {
+      text-align: right;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.js"></script>
+  <script src="tripolar.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-title" href="https://www.snibbe.com/">SCOTT SNIBBE</a>
+  </header>
+  <main>
+    <div id="sketch" aria-label="Interactive Tripolar artwork">
+      <noscript>JavaScript is required to run Tripolar.</noscript>
+    </div>
+    <p>Click and drag in the artwork to explore the pendulum's paths.</p>
+    <p class="caption">
+      Tripolar<br>
+      Scott Snibbe, 2002<br>
+      Commissioned for The Whitney Museum's Artport: CODeDOC<br><br>
+      <a href="Tripolar_java.html">Tripolar.java</a><br>
+      <a href="https://www.snibbe.com/generative/tripolar">About Tripolar</a>
+    </p>
+  </main>
+</body>
+</html>

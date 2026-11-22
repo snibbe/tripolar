@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <title>Tripolar.java</title>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <meta name="generator" content="lore's source converter - http://www.source2html.org">
+</head>
+
+<body style="background: #ffffff;">
+
+<nav style="font: 13px Arial, Helvetica, sans-serif;">
+  <a href="https://www.snibbe.com/generative/tripolar">About Tripolar</a> |
+  <a href="Tripolar.html">Run Tripolar</a>
+</nav>
+
+<pre><code><font color="#000000">
+<b>import</b> java.applet.*;
+<b>import</b> java.awt.*;
+
+<font color="#000080"><i>// <a href="Tripolar.html">Tripolar</a> by Scott Snibbe. July 2002.</i></font>
+
+<font color="#000080"><i>// Commissioned for The Whitney Museum of American Art's Artport.</i></font>
+<font color="#000080"><i>// CODeDOC project. </i></font>
+
+<font color="#000080"><i>// Tripolar simulates a pendulum swinging above three magnets. The program draws</i></font>
+<font color="#000080"><i>// the complete path that a pendulum would follow if it were released</i></font>
+<font color="#000080"><i>// above the table exactly at the mouse point. This is a well-known</i></font>
+<font color="#000080"><i>// chaotic system - very small changes to the starting position produce</i></font>
+<font color="#000080"><i>// large changes to the path and which magnet on which it unltimately ends.</i></font>
+<font color="#000080"><i>// The program drags the starting position slowly towards the actual</i></font>
+<font color="#000080"><i>// mouse position, so that one can explore points between pixels, simulating</i></font>
+<font color="#000080"><i>// a screen resolution hundreds of times the actual pixel resolution.</i></font>
+
+<font color="#000080"><i>// The source code demonstrates the &quot;meta-chaos&quot; of the program itself.</i></font>
+<font color="#000080"><i>// A set of key variables defines all the parameters of the simulation.</i></font>
+<font color="#000080"><i>// Changing any of these parameters radically alters the artwork, in most</i></font>
+<font color="#000080"><i>// cases making it non-functional - in some cases the program will hang, </i></font>
+<font color="#000080"><i>// in others the paths will explode, implode or oscillate.</i></font>
+
+<font color="#000080"><i>// By its title, the program is also meant to suggest the connection between</i></font>
+<font color="#000080"><i>// mental states and these chaotic phenomena - even small, simple physical</i></font>
+<font color="#000080"><i>// systems are as unpredictable and sensitive to initial conditions as our</i></font>
+<font color="#000080"><i>// own minds. Chaos and complexity reign at all scales.</i></font>
+
+<b>public class</b> Tripolar <b>extends</b> Applet <b>implements</b> Runnable
+{
+   <font color="#000080"><i>// Controls whether we're updating animation</i></font>
+    Thread kicker_ = <b>null</b>;
+   <font color="#000080"><i>// Indication that animation thread has halted</i></font>
+    <b>boolean</b> timeToDie_;
+
+   <font color="#000080"><i>// Milliseconds between frame updates</i></font>
+   <b>private int</b> speed_;
+
+   <font color="#000080"><i>// Offscreen buffer for double-buffering</i></font>
+    Image offScrImage_;
+   Graphics offScrGC_;
+
+   <b>int</b> screenWidth_, screenHeight_;
+   <b>double</b> centerX_, centerY_;
+   <b>double</b> scale_;
+   <b>boolean</b> down_ = <b>false</b>;
+
+   Point mousePt_;
+   <b>double</b> probeX_ = <font color="#0000ff">1e10</font>, probeY_ = <font color="#0000ff">1e10</font>;
+
+   <font color="#000080"><i>// These constants define the artwork - very slight changes to parameters</i></font>
+   <font color="#000080"><i>// will make the program, implode, explode, or simply less interesting.</i></font>
+   <font color="#000080"><i>// As a work exploring chaotic phenomena, these parameters show the &quot;meta-chaos&quot;</i></font>
+   <font color="#000080"><i>// of the program itself - a nonlinear system extremely sensitive to </i></font>
+   <font color="#000080"><i>// initial conditions.</i></font>
+   <font color="#000080"><i>// These choices also represent the hand of the individual artist in an </i></font>
+   <font color="#000080"><i>// algorithmic/technical work.</i></font>
+
+   <b>double</b> damping_ = <font color="#0000ff">0.97</font>;    <font color="#000080"><i>// damping constant</i></font>
+   <b>double</b> gravity_ = <font color="#0000ff">0.005</font>;   <font color="#000080"><i>// gravitational constant</i></font>
+   <b>double</b> magnetism_ = <font color="#0000ff">0.1</font>;
+   <b>double</b> height_ = <font color="#0000ff">0.1</font>;      <font color="#000080"><i>// vertical distance from magnets</i></font>
+   <b>double</b> mass_ = <font color="#0000ff">1.0</font>;        <font color="#000080"><i>// mass of pendulum</i></font>
+   <b>double</b> dtSim_ = <font color="#0000ff">0.01</font>;      <font color="#000080"><i>// time step</i></font>
+
+   <b>double</b> [] magnetX_, magnetY_;
+
+   <font color="#000080"><i>// Thread proc which updates animation</i></font>
+    <b>public void</b> run() {
+       <b>while</b> (kicker_ != <b>null</b>) {
+         updateAnimation();
+         repaint();
+         <b>try</b> {
+            <b>if</b> (!timeToDie_) {
+               Thread.sleep(speed_);
+            } <b>else</b> {
+               <b>if</b> (kicker_ != <b>null</b>) {
+                  kicker_.stop();
+                  kicker_ = <b>null</b>;
+                  <b>break</b>;
+               }
+            }
+         } <b>catch</b> (InterruptedException e) {
+            <b>break</b>;
+         }
+      }
+   }
+
+    <font color="#000080"><i>// Start the applet</i></font>
+    <b>public void</b> start() {
+      requestFocus();
+
+      <b>if</b> (kicker_ == <b>null</b>) {
+         kicker_ = <b>new</b> Thread(<b>this</b>);
+         kicker_.start();
+      }
+    }
+
+    <font color="#000080"><i>// Stop the applet.</i></font>
+    <b>public void</b> stop() {
+      timeToDie_ = <b>true</b>;
+    }
+
+   <b>public void</b> init()
+   {
+      speed_ = <font color="#0000ff">33</font>;
+
+      screenWidth_ =  size().width;
+      screenHeight_ =  size().height;
+
+      centerX_ = (<b>double</b>) screenWidth_ / <font color="#0000ff">2.0</font>;
+      centerY_ = (<b>double</b>) screenHeight_ / <font color="#0000ff">2.0</font>;
+      scale_ = Math.min(centerX_, centerY_);    <font color="#000080"><i>// scale to normalize</i></font>
+
+      <font color="#000080"><i>// Create offscreen buffer</i></font>
+      offScrImage_ = createImage(screenWidth_, screenHeight_);
+      offScrGC_ = offScrImage_.getGraphics();
+
+      <font color="#000080"><i>// Background color for our applet</i></font>
+      setBackground(Color.white);
+      setForeground(Color.black);
+
+      mousePt_ = <b>new</b> Point();
+      magnetX_ = <b>new double</b> [<font color="#0000ff">3</font>];
+      magnetY_ = <b>new double</b> [<font color="#0000ff">3</font>];
+
+      setMagnets(<font color="#0000ff">0.5</font>);
+
+      timeToDie_ = <b>false</b>;
+   }
+
+   <font color="#000080"><i>// create three magnets at given radius from center</i></font>
+   <b>void</b> setMagnets(<b>double</b> r) {
+      magnetX_[<font color="#0000ff">0</font>] = r * Math.cos(Math.PI/<font color="#0000ff">2</font>);
+      magnetY_[<font color="#0000ff">0</font>] = r * Math.sin(Math.PI/<font color="#0000ff">2</font>);
+      magnetX_[<font color="#0000ff">1</font>] = r * Math.cos(Math.PI/<font color="#0000ff">2</font> + (<font color="#0000ff">2</font>*Math.PI) / <font color="#0000ff">3</font>);
+      magnetY_[<font color="#0000ff">1</font>] = r * Math.sin(Math.PI/<font color="#0000ff">2</font> + (<font color="#0000ff">2</font>*Math.PI) / <font color="#0000ff">3</font>);
+      magnetX_[<font color="#0000ff">2</font>] = r * Math.cos(Math.PI/<font color="#0000ff">2</font> - (<font color="#0000ff">2</font>*Math.PI) / <font color="#0000ff">3</font>);
+      magnetY_[<font color="#0000ff">2</font>] = r * Math.sin(Math.PI/<font color="#0000ff">2</font> - (<font color="#0000ff">2</font>*Math.PI) / <font color="#0000ff">3</font>);
+   }
+
+   <font color="#000080"><i>// performs the simulation of the pendulum and draws the path</i></font>
+   <b>void</b> updatePaths(<b>double</b> x, <b>double</b> y, Graphics g) {
+      <b>double</b> vX=<font color="#0000ff">0</font>, vY=<font color="#0000ff">0</font>;   <font color="#000080"><i>// velocity</i></font>
+      <b>double</b> fX,fY;
+      <b>double</b> r, over_rsq, over_rcube;
+      <b>double</b> dx, dy;
+      <b>double</b> filtVel = <font color="#0000ff">1</font>;
+      <b>double</b> lastX, lastY;
+      <b>int</b> iter = <font color="#0000ff">0</font>;
+
+      g.setColor(Color.black);
+      <b>while</b> (filtVel &gt; <font color="#0000ff">0.1</font> &amp;&amp; iter &lt; <font color="#0000ff">10000</font>) {
+         iter++;
+         fX=<font color="#0000ff">0</font>;
+         fY=<font color="#0000ff">0</font>; <font color="#000080"><i>// zero forces</i></font>
+
+         <font color="#000080"><i>// simulate gravitational pull towards center</i></font>
+         r = x*x + y*y;
+         <b>if</b> (r &lt; <font color="#0000ff">0.00001</font>)
+            r= <font color="#0000ff">0.00001</font>;
+
+         over_rsq = <font color="#0000ff">1.0</font> / r;
+         fX -= (x * gravity_) * over_rsq;
+         fY -= (y * gravity_) * over_rsq;
+
+         <font color="#000080"><i>// simulate magnetic forces towards three magnets using </i></font>
+         <font color="#000080"><i>// Coulomb's 2nd law - attraction falls off with distance square</i></font>
+         <b>for</b> (<b>int</b> m = <font color="#0000ff">0</font>; m &lt; <font color="#0000ff">3</font>; m++) {
+            dx = magnetX_[m] - x;
+            dy = magnetY_[m] - y;
+            r = Math.sqrt(dx*dx + dy*dy + height_*height_);
+            <b>if</b> (r &lt; <font color="#0000ff">0.00001</font>)
+               r = <font color="#0000ff">0.00001</font>;
+            over_rcube = <font color="#0000ff">1.0</font> / (r*r*r);
+
+            fX += magnetism_ * dx * over_rcube;
+            fY += magnetism_ * dy * over_rcube;
+         }
+
+         <font color="#000080"><i>// friction proportional to velocity</i></font>
+         fX -= vX*damping_;
+         fY -= vY*damping_;
+
+         <font color="#000080"><i>// Apply forces using Newton's Law: F=mA</i></font>
+         vX += dtSim_ * fX / mass_;
+         vY += dtSim_ * fY / mass_;
+
+         <font color="#000080"><i>// compute filtered velocity, to determine when the pendulum stops</i></font>
+         filtVel = <font color="#0000ff">0.99</font> * filtVel + <font color="#0000ff">0.1</font> * Math.max(Math.abs(vX), Math.abs(vY));
+         lastX = x;
+         lastY = y;
+         x += vX;
+         y += vY;
+
+         drawNormalizedLine(lastX, lastY, x, y, g);
+      }
+   }
+
+
+   <b>void</b> drawNormalizedLine(<b>double</b> x1, <b>double</b> y1, <b>double</b> x2, <b>double</b> y2, Graphics g) {
+
+      g.drawLine((<b>int</b>) Math.round(x1 * scale_ + centerX_),
+               (<b>int</b>) Math.round(y1 * scale_ + centerY_),
+               (<b>int</b>) Math.round(x2 * scale_ + centerX_),
+               (<b>int</b>) Math.round(y2 * scale_ + centerY_));
+   }
+
+   <font color="#000080"><i>// Override update so that it only calls paint.</i></font>
+   <b>public void</b> update(Graphics g) {
+      paint(g);
+   }
+
+   <b>void</b> updateAnimation() {
+      <b>if</b> (!down_) <b>return</b>;
+
+      <font color="#000080"><i>// interpolate from probe position to mouse position</i></font>
+      <b>if</b> (probeX_ == <font color="#0000ff">1e10</font>) {
+         probeX_ = mousePt_.x;
+         probeY_ = mousePt_.y;
+      }
+
+      <b>double</b> dx = mousePt_.x - probeX_;
+      <b>double</b> dy = mousePt_.y - probeY_;
+      <b>double</b> distSq = dx*dx + dy*dy;
+
+      <b>if</b> (distSq &gt; <font color="#0000ff">1</font>) { <font color="#000080"><i>// exponentially proceed to pixel clicked on</i></font>
+         probeX_ += dx/<font color="#0000ff">2</font>;
+         probeY_ += dy/<font color="#0000ff">2</font>;
+      } <b>else</b> {       <font color="#000080"><i>// logarithmically interpolate over last pixel</i></font>
+                     <font color="#000080"><i>// This allows one to explore values between pixels</i></font>
+                     <font color="#000080"><i>// by &quot;pulling&quot; the actual probe very slowly towards</i></font>
+                     <font color="#000080"><i>// the mouse position.</i></font>
+         probeX_ += dx * <font color="#0000ff">0.01</font>;
+         probeY_ += dy * <font color="#0000ff">0.01</font>;
+      }
+   }
+
+   <b>public void</b> paint(Graphics g)
+   {
+      offScrGC_ = offScrImage_.getGraphics();
+
+      <font color="#000080"><i>// Draw all the graphics onto offscreen buffer</i></font>
+      offScrGC_.setColor(Color.white);
+      offScrGC_.fillRect(<font color="#0000ff">0</font>, <font color="#0000ff">0</font>, screenWidth_, screenHeight_);
+
+      <b>if</b> (probeX_ != <font color="#0000ff">1e10</font>) {
+         updatePaths((probeX_ - centerX_) / scale_,
+                  (probeY_ - centerY_) / scale_, offScrGC_);
+      }
+
+      <font color="#000080"><i>// Copy the offscreen buffer onscreen</i></font>
+      g.drawImage(offScrImage_, <font color="#0000ff">0</font>, <font color="#0000ff">0</font>, <b>this</b>);
+   }
+
+   <b>public boolean</b> mouseDown(Event evt, <b>int</b> x, <b>int</b> y) {
+      down_ = <b>true</b>;
+      mousePt_.setLocation(x, y);
+      <b>return true</b>;
+   }
+
+   <b>public boolean</b> mouseUp(Event evt, <b>int</b> x, <b>int</b> y) {
+      down_ = <b>false</b>;
+      <b>return true</b>;
+   }
+
+
+   <b>public boolean</b> mouseDrag(Event evt, <b>int</b> x, <b>int</b> y) {
+      <b>if</b> (down_) {
+         mousePt_.setLocation(x, y);
+      }
+      <b>return true</b>;
+   }
+
+   <b>public boolean</b> mouseEnter(Event evt, <b>int</b> x, <b>int</b> y) {
+      <font color="#000080"><i>// Request that events are delivered to our applet</i></font>
+      requestFocus();
+
+      <b>return true</b>;
+   }
+}
+
+</font>
+</code></pre>
+
+
+</body></html>
+
+<!-- generated by lore's source converter (http://www.source2html.org) -->
