@@ -241,7 +241,6 @@ function downloadPDF() {
   const pad = n => String(n).padStart(2, '0');
   const name = 'tripolar-snibbe-' +
     now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' +
-    pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds()) + '-' +
     positionCode;
 
   const right = left + size;
